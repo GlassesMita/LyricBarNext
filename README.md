@@ -4,6 +4,20 @@
 
 当前版本：**1.1.9**（要求网易云 > 3.1.11，BetterNCM ≥ 1.0.0）
 
+## 截图
+
+软件内词栏（自适应宽度、逐字歌词、双语翻译，背景跟随封面主题色）：
+
+![词栏](docs/preview-lyricbar.png)
+
+设置面板（全部配置实时生效）：
+
+![设置面板](docs/preview-settings.png)
+
+运行于网易云音乐 3.1 主界面：
+
+![场景](docs/preview-scene.png)
+
 ## 功能
 
 - **逐字歌词**：与 RefinedNowPlayingNext 完全一致的动画时序（逐字高亮、上浮、间奏点）
@@ -18,6 +32,7 @@
   - 字体：默认 / 跟随 RNPNext / 自定义 font-family
 - **配置自动迁移**：首次运行自动继承旧 LyricBar（`lyric-bar-*`）与 LyricBarBlur（`LyricBarBlurSettings`）的配置
 - **字体一致性**：配置界面自动继承网易云本体的计算字体
+- **鲁棒性**：歌词偏移与字号的任何来源的非有限值自动归零；播放中进度事件失联 5 秒自动重绑 audioplayer 事件；切歌重挂载首帧瞬时就位（无飞入重叠）
 
 ## 性能设计
 
