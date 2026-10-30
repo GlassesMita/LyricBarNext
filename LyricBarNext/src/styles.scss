@@ -1,0 +1,292 @@
+/* LyricBarNext —— 网易云音乐 3.x 软件内词栏插件
+ * Copyright (C) 2026 Plana
+ * 以 GPL-3.0（或更高版本）授权，完整文本见仓库根目录 LICENSE。
+ * 部分内容改编自 MIT 许可的第三方项目，随本程序以 GPL-3.0 重新分发。 */
+// LyricBarNext 样式：外观全部由 appearance.js 写入的 CSS 变量驱动（--lbn-*）。
+// 主题模式下颜色引用 RNPNext 维护的 --rnp-accent-color-*（封面主色，随亮暗自动切换）。
+// 尺寸变化（高度/宽度）使用非线性缓动 cubic-bezier(0.22,1,0.36,1)（easeOutQuint 型）；
+// 行位移不使用 CSS transition，由 rAF 补间直接驱动（帧率无关）。
+
+// 亮暗回退变量（RNPNext 变量缺失时使用；由 theme.js 维护 lbn-light/lbn-dark 类）
+body {
+	--lbn-fallback-bg-rgb: 34, 34, 34;
+	--lbn-fallback-fg: #d4d4d5;
+	--lyric-bar-height: calc(var(--lyric-bar-font-size) * 1.2 * var(--lyric-bar-lines) + var(--lyric-bar-font-size) * 0.3 * (var(--lyric-bar-lines) - 1) + var(--lyric-bar-font-size) * 1);
+
+	&.lbn-light {
+		--lbn-fallback-bg-rgb: 255, 255, 255;
+		--lbn-fallback-fg: #313131;
+	}
+	.u-playinglocation {
+		margin-bottom: calc(var(--lyric-bar-height) + var(--bottombar-elevation, 0px) + 15px);
+	}
+}
+
+// 非线性缓动（尺寸变化）
+$lbn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+.lyric-bar {
+	position: fixed;
+	width: clamp(200px, var(--lyric-bar-width, 400px), 100vw - var(--sidebar-width, 199px) - 25px);
+	height: var(--lyric-bar-height);
+	z-index: 70;
+	overflow: hidden;
+	// 尺寸（宽/高）变化时长可配置（--lbn-size-dur，默认 500ms 与 2.x 一致，0 为瞬时）；
+	// 行位移不在 CSS 过渡之列（由合成器驱动，见下方 .rnp-lyrics-line 规则）
+	transition:
+		opacity .35s ease,
+		height var(--lbn-size-dur, 0.5s) ease,
+		width var(--lbn-size-dur, 0.5s) ease;
+
+	background: var(--lbn-bg, rgba(var(--lbn-fallback-bg-rgb), 0.75));
+	backdrop-filter: var(--lbn-backdrop, blur(12px));
+	border: var(--lbn-border, none);
+	border-radius: var(--lbn-radius, 12px);
+	box-shadow: var(--lbn-shadow, none);
+	padding: var(--lbn-padding, 0);
+	&.no-bd-bg-blend {
+		background-clip: padding-box;
+	}
+
+	&.posx-right {
+		right: calc(15px + var(--extra-pos-margin, 0px));
+	}
+	&.posx-left {
+		left: calc(var(--leftbar-width, 199px) + 15px + var(--extra-pos-margin, 0px));
+	}
+	&.posy-bottom {
+		bottom: calc(var(--bottombar-height, 72px) + var(--bottombar-elevation, 0px) + 15px);
+	}
+	&.posy-top {
+		top: 75px;
+	}
+	&.center-bottom {
+		top: unset !important;
+		bottom: calc(var(--bottombar-height, 72px) + var(--bottombar-elevation, 0px)) !important;
+		margin: 0 auto !important;
+		border-bottom-width: 0 !important;
+		border-bottom-left-radius: 0 !important;
+		border-bottom-right-radius: 0 !important;
+	}
+	&.welt-lr {
+		width: clamp(200px, 100%, 100vw - var(--sidebar-width, 199px) - (2px * 1)) !important;
+		right: calc(1px + var(--extra-pos-margin, 0px)) !important;
+		left: calc(var(--leftbar-width, 199px) + var(--extra-pos-margin, 0px)) !important;
+	}
+	&.multiline3 {
+		height: calc(var(--lyric-bar-height) * 3);
+	}
+
+	&.mouse-through {
+		pointer-events: none !important;
+	}
+
+	&.no-lyrics.hide-without-lyrics, body[page-hash*='/m/fm/'] &, body.mq-mv & {
+		opacity: 0 !important;
+		pointer-events: none;
+	}
+	&.no-lyrics:not(.hide-without-lyrics) {
+		opacity: 1 !important;
+		pointer-events: auto;
+	}
+	body.mq-playing &, body.rnp-lyric-page-open & {
+		visibility: hidden;
+		pointer-events: none;
+		opacity: 0 !important;
+	}
+
+	&.adaptive-width {
+		width: calc(var(--current-line-width, 368px) + 32px);
+		transition:
+			opacity .35s ease,
+			height var(--lbn-size-dur, 0.5s) ease,
+			width var(--lbn-size-dur, 0.5s) ease;
+		// 关键优化：左对齐（默认）时行宽与文本等宽、与词栏宽度解耦。
+		// 否则每行 width 依赖词栏宽度，宽度动画的每一帧都会引发
+		// 全部行（含数千逐字 span）的子树重排 —— 尺寸变化卡顿的主因。
+		&.text-align-left .rnp-lyrics-line {
+			width: max-content !important;
+			max-width: none !important;
+		}
+		.lyric-bar-inner {
+			-webkit-mask: none !important;
+		}
+		.lyric-bar-resizer {
+			display: none;
+			pointer-events: none;
+		}
+		.rnp-lyrics-single-line-wrapper {
+			transform: none !important;
+		}
+		.rnp-interlude-inner {
+			transform-origin: center !important;
+		}
+		&.text-align-left .rnp-lyrics-line { align-items: flex-start; }
+		&.text-align-center .rnp-lyrics-line { align-items: center; }
+		&.text-align-right .rnp-lyrics-line { align-items: flex-end; }
+	}
+	&.no-fade {
+		--mask-image: unset !important;
+	}
+
+	* {
+		filter: none;
+	}
+
+	// 行位移：JS 在行切换时一次性写入目标值，由合成器（GPU）按非线性缓出插值。
+	// 不用主线程 rAF 逐帧驱动——主线程繁忙（进度事件/其他插件）时合成器动画依然满帧。
+	// 同时覆盖 RNPNext 全局样式注入的 transition: transform 0.5s（否则会与本过渡叠加成拖影）。
+	.rnp-lyrics-line {
+		transition: transform .48s cubic-bezier(0.22, 1, 0.36, 1) !important;
+		will-change: auto !important;
+	}
+	// 瞬时模式（换歌/seek 复位/resize）：禁用过渡直接就位
+	&.lbn-instant .rnp-lyrics-line {
+		transition-duration: 0s !important;
+	}
+	.rnp-lyrics-single-line-wrapper {
+		transition: none !important;
+		will-change: auto !important;
+	}
+	// 合成层提示只保留在活动窗口（±3 行），避免上百行常驻合成层
+	.rnp-lyrics-line.lbn-near {
+		will-change: transform !important;
+	}
+	.rnp-lyrics-line.lbn-near .rnp-karaoke-word {
+		will-change: opacity, transform !important;
+	}
+	.lyric-bar-inner {
+		width: 100%;
+		height: 100%;
+		box-sizing: border-box;
+		-webkit-mask-image: var(--mask-image);
+		opacity: var(--lbn-text-opacity, 1);
+	}
+	&.custom-font .rnp-lyrics,
+	&.custom-font .rnp-lyrics * {
+		font-family: var(--lbn-font-family, inherit);
+	}
+
+	.rnp-lyrics {
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		padding: 0;
+		-webkit-mask: none;
+		color: var(--lbn-text-color, var(--lbn-fallback-fg));
+		--rnp-accent-color-shade-2: var(--lbn-text-color, var(--lbn-fallback-fg));
+
+		.rnp-lyrics-line {
+			height: var(--lyric-bar-height);
+			width: calc(100% - 30px);
+			max-width: calc(100% - 30px);
+			padding-left: 15px;
+			padding-right: 15px;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			will-change: transform;
+			.rnp-lyrics-single-line-wrapper {
+				width: fit-content;
+				> * {
+					white-space: nowrap;
+					width: fit-content;
+				}
+				.rnp-lyrics-line-karaoke {
+					transform: translateY(1px);
+					display: block !important;
+				}
+			}
+			&::before {
+				display: none !important;
+			}
+			&.rnp-interlude .rnp-interlude-inner {
+				width: fit-content;
+				white-space: nowrap;
+			}
+		}
+
+		.rnp-lyrics-line {
+			.rnp-karaoke-word {
+				will-change: opacity, transform;
+			}
+			$idle-opacity: 0.4;
+			&[offset='0'] > div > div {
+				&.rnp-lyrics-line-karaoke {
+					opacity: 1;
+					.rnp-karaoke-word {
+						opacity: 1;
+						transform: translateY(-2px);
+						transition-property: opacity, transform;
+						transition-timing-function: linear, ease;
+					}
+				}
+			}
+			&:not([offset='0']) > div > div{
+				&.rnp-lyrics-line-karaoke {
+					opacity: 1;
+					.rnp-karaoke-word {
+						transition-property: opacity, transform;
+						opacity: $idle-opacity;
+						transform: translateY(0);
+					}
+				}
+			}
+			.rnp-lyrics-line-karaoke.force-refresh > .rnp-karaoke-word {
+				transition: all 0s !important;
+				opacity: 0.4 !important;
+				transform: translateY(0) !important;
+			}
+		}
+
+		&.first-line-bold .rnp-lyrics-line > div:first-child > div {
+			font-weight: bold !important;
+		}
+		&:not(.first-line-bold) .rnp-lyrics-line > div:first-child > div {
+			font-weight: unset !important;
+		}
+	}
+
+	// 文字描边（合并自 LyricBarBlur）
+	&.text-ol-shadow .rnp-lyrics {
+		text-shadow:
+			var(--lbn-ol-width, 0.5px) var(--lbn-ol-width, 0.5px) var(--lbn-ol-color, rgba(0,0,0,1)),
+			calc(var(--lbn-ol-width, 0.5px) * -1) var(--lbn-ol-width, 0.5px) var(--lbn-ol-color, rgba(0,0,0,1)),
+			calc(var(--lbn-ol-width, 0.5px) * -1) calc(var(--lbn-ol-width, 0.5px) * -1) var(--lbn-ol-color, rgba(0,0,0,1)),
+			var(--lbn-ol-width, 0.5px) calc(var(--lbn-ol-width, 0.5px) * -1) var(--lbn-ol-color, rgba(0,0,0,1));
+	}
+	&.text-ol-stroke .rnp-lyrics {
+		-webkit-text-stroke: var(--lbn-ol-width, 0.5px) var(--lbn-ol-color, rgba(0,0,0,1));
+	}
+
+	// 非 adaptive-width 时的对齐
+	&:not(.adaptive-width) {
+		.rnp-lyrics-single-line-wrapper {
+			min-width: 100%;
+			> * {
+				min-width: 100%;
+			}
+		}
+		&.text-align-left .rnp-lyrics-single-line-wrapper > * { text-align: left; }
+		&.text-align-center .rnp-lyrics-single-line-wrapper > * { text-align: center; }
+		&.text-align-right .rnp-lyrics-single-line-wrapper > * { text-align: right; }
+	}
+
+	.lyric-bar-resizer {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 4px;
+		cursor: col-resize;
+		background: transparent;
+		z-index: 2;
+	}
+}
+
+// 设置面板：跟随网易云本体字体（MUI 主题已注入本体计算字体，此处兜底原生文本节点）
+.lyric-bar-settings {
+	font-family: inherit;
+	input, button {
+		font-family: inherit;
+	}
+}
