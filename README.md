@@ -2,7 +2,7 @@
 
 重新设计的网易云音乐**软件内词栏**插件。由 [LyricBar](https://github.com/solstice23/lyric-bar-netease)（solstice23）与 [LyricBarBlur](https://github.com/Lukoning/LyricBarBlur)（Lukoning）合并而来，针对**网易云音乐 3.x** 重写适配，深度可定制、跟随主题，歌词来源可选。
 
-当前版本：**1.1.9**（要求网易云 > 3.1.11，BetterNCM ≥ 1.0.0）
+当前版本：**1.2.0**（要求网易云 > 3.1.11，BetterNCM ≥ 1.0.0）
 
 ## 截图
 
@@ -30,6 +30,7 @@
   - 文字：字号、不透明度、颜色、描边（阴影/描边两种方式）、对齐
   - 歌词：翻译、罗马音、逐字开关、全局偏移（与 RNPNext 联动）、歌词来源
   - 字体：默认 / 跟随 RNPNext / 自定义 font-family
+  - 关于：设置面板内置源代码仓库与问题反馈（GitHub Issues）链接
 - **配置自动迁移**：首次运行自动继承旧 LyricBar（`lyric-bar-*`）与 LyricBarBlur（`LyricBarBlurSettings`）的配置
 - **字体一致性**：配置界面自动继承网易云本体的计算字体
 - **鲁棒性**：歌词偏移与字号的任何来源的非有限值自动归零；播放中进度事件失联 5 秒自动重绑 audioplayer 事件；切歌重挂载首帧瞬时就位（无飞入重叠）

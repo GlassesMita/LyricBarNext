@@ -262,6 +262,22 @@ export function Settings(props) {
 						)}
 					</Section>
 
+					<Section title='关于'>
+						<Stack direction='row' spacing={2}>
+							<Button variant='outlined' size='small'
+								onClick={() => betterncm.ncm.openUrl('https://github.com/GlassesMita/LyricBarNext')}>
+								源代码仓库
+							</Button>
+							<Button variant='outlined' size='small'
+								onClick={() => betterncm.ncm.openUrl('https://github.com/GlassesMita/LyricBarNext/issues')}>
+								问题反馈（GitHub Issues）
+							</Button>
+						</Stack>
+						<Typography variant='caption' color='textSecondary' style={{ display: 'block', marginTop: 4 }}>
+							LyricBar 与 LyricBarBlur 的合并重写版（GPL-3.0），鸣谢 solstice23、Lukoning、SUlTlUS。
+						</Typography>
+					</Section>
+
 					<Stack direction='row' spacing={2} style={{ marginTop: 10 }}>
 						<Button variant='outlined' onClick={() => setC(resetConfig())}>恢复默认</Button>
 						<Typography variant='caption' color='textSecondary' style={{ alignSelf: 'center' }}>

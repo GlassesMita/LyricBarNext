@@ -2,14 +2,13 @@
     "manifest_version": 1,
     "name": "LyricBarNext",
     "slug": "LyricBarNext",
-    "author": "solstice23, Lukoning, Plana",
+    "author": "GlassesMita",
     "author_links": [
-        "https://github.com/solstice23",
-        "https://github.com/Lukoning"
+        "https://github.com/GlassesMita"
     ],
     "description": "重新设计的软件内词栏（LyricBar 与 LyricBarBlur 合并版，深度可定制、跟随主题，歌词来源可选 RNPNext 或官方解析，适配网易云音乐 3.x）",
-    "preview": "preview.png",
-    "version": "1.1.9",
+    "preview": "preview.jpg",
+    "version": "1.2.0",
     "type": "extension",
     "requirements": [],
     "loadAfter": [
@@ -29,5 +28,6 @@
             }
         ]
     },
-    "license": "GPL-3.0-or-later"
+    "license": "GPL-3.0-or-later",
+    "fork_of": "LyricBar"
 }
