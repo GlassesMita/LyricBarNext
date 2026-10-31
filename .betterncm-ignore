@@ -1,0 +1,17 @@
+/.git/
+/.github/
+/node_modules/
+/src/
+/dist/
+/docs/
+/shots/
+/tools/
+/bncm-backup-*/
+/wiki-tmp/
+/.gitignore
+/.babelrc
+/package.json
+/package-lock.json
+/webpack.config.js
+/README.md
+/LICENSE

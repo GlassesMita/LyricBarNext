@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "LyricBarNext - LyricBar + LyricBarBlur merged, NCM 3.x compatible",
   "scripts": {
-    "build": "webpack --mode=production --node-env=production",
-    "build:dev": "webpack --mode=development"
+    "build": "webpack --mode=production --node-env=production && cp dist/main.js main.js && cp dist/manifest.json manifest.json && cp dist/preview.jpg preview.jpg",
+    "build:dev": "webpack --mode=development",
+    "pack": "powershell -NoProfile -Command \"Compress-Archive -Path dist/manifest.json,dist/main.js,dist/preview.jpg -DestinationPath dist/LyricBarNext.plugin.zip -Force\" && powershell -NoProfile -Command \"Move-Item dist/LyricBarNext.plugin.zip dist/LyricBarNext-1.2.0.plugin -Force\""
   },
   "devDependencies": {
     "@babel/core": "^7.20.5",

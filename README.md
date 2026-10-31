@@ -48,20 +48,14 @@
 
 ```bash
 npm install
-npm run build        # 产物在 dist/（webpack + babel + sass）
-```
-
-打包 `.plugin`（zip 格式，含 `manifest.json` + `main.js` + `preview.png`）：
-
-```powershell
-Compress-Archive -Path dist/manifest.json,dist/main.js,dist/preview.png -DestinationPath LyricBarNext.zip
-Rename-Item LyricBarNext.zip LyricBarNext-<版本>.plugin
+npm run build        # webpack 构建到 dist/，并同步根级 main.js / manifest.json / preview.jpg（插件市场同步所需）
+npm run pack         # 打包发布物 dist/LyricBarNext-<版本>.plugin
 ```
 
 ## 安装
 
 1. 网易云音乐 **3.1.11+**，BetterNCM（含 II 分支）注入正常
-2. 将 `LyricBarNext-<版本>.plugin` 放入 BetterNCM 插件目录（数据目录下 `plugins/`），重启网易云
+2. 将 `dist/LyricBarNext-<版本>.plugin` 放入 BetterNCM 插件目录（数据目录下 `plugins/`），重启网易云
 3. RefinedNowPlayingNext **可选**：安装后歌词来源可用"自动/RNPNext"；不安装则选择"官方解析"即可
 4. 建议停用旧版 LyricBar / LyricBarBlur（manifest 已声明互斥；旧配置会自动迁移）
 
@@ -84,8 +78,11 @@ Rename-Item LyricBarNext.zip LyricBarNext-<版本>.plugin
 ## 目录结构
 
 ```
-LyricBarNext/            # 插件工程
-├── src/
+├── main.js              # 构建产物（插件市场同步入口，webpack 打包）
+├── manifest.json        # 插件清单（市场同步读取）
+├── preview.jpg          # 预览图（市场同步读取）
+├── dist/                # 发布物 LyricBarNext-<版本>.plugin
+├── src/                 # 源码
 │   ├── main.js          # 入口：挂载词栏、初始化外观/主题/歌词来源
 │   ├── config.js        # 统一配置 + 旧配置迁移
 │   ├── appearance.js    # 配置 → CSS 变量/状态类
@@ -97,9 +94,9 @@ LyricBarNext/            # 插件工程
 │   ├── ncm-compat.js    # 3.x 兼容层（audioplayer 事件 / Redux store / 播放状态）
 │   ├── settings.js      # 统一设置面板（MUI）
 │   └── styles.scss      # 样式（CSS 变量体系）
-├── manifest.json
-└── webpack.config.js
-tools/                   # BetterNCM PluginMarket 源修补脚本（商店维护用，与插件构建无关）
+├── docs/                # 截图与插件商店投稿材料
+├── .betterncm-ignore    # 市场同步过滤（源码/构建配置等不进入插件包）
+└── tools/               # BetterNCM PluginMarket 源修补脚本（商店维护用，与插件构建无关）
 ```
 
 ## 已知限制
