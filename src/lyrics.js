@@ -361,13 +361,14 @@ export function Lyrics(props) {
 			const id = getPlayingSongId();
 			if (!id) return;
 			const playing = isPlayerPlaying();
-			if (id !== lastId) {
+						const changedSong = id !== lastId;
+			if (changedSong) {
 				lastId = id;
 				anchorSeconds = null;
 				anchorAt = 0;
 				source = 'none';
 			}
-			if (id !== songId || playing !== lastPlaying) {
+			if (changedSong || playing !== lastPlaying) {
 				lastPlaying = playing;
 				onPlayStateChange(id, playing ? 'resume' : 'pause');
 			}
@@ -391,6 +392,23 @@ export function Lyrics(props) {
 						if (Number.isFinite(max) && Math.abs(max - duration) < Math.max(2, duration * 0.015) && Number.isFinite(pos) && pos >= 0 && pos <= max) {
 							value = pos; source = 'slider'; break;
 						}
+					}
+				}
+			}
+			if (value == null) {
+				// The native 3.x footer shows elapsed time even without an HTMLAudioElement.
+				// Use it as a low-resolution fallback and interpolate between changes.
+				const text = document.querySelector('footer')?.innerText ?? '';
+				const matches = [...text.matchAll(/(?:^|\\s)(\\d{1,3}):(\\d{2})(?=\\s|\\/|$)/g)];
+				const duration = Number(getPlayingState()?.resourceDuration);
+				for (const match of matches) {
+					const seconds = Number(match[1]) * 60 + Number(match[2]);
+					if (Number.isFinite(duration) && duration > 0 && seconds > duration + 2) continue;
+					if (anchorSeconds == null || Math.abs(seconds - anchorSeconds) >= 0.9) {
+						value = seconds;
+						anchorSeconds = seconds;
+						anchorAt = now;
+						break;
 					}
 				}
 			}
