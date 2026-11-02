@@ -6,7 +6,7 @@
 // 部分代码改编自 MIT 许可的第三方项目（详见 README「来源与鸣谢」），
 // 其版权归原作者所有，此处随本程序以 GPL-3.0 重新分发。
 import { getConfig, onConfigChange, setConfig } from './config.js';
-import { appendRegisterCall, removeRegisterCall, rebindChannelEvents, getIsPlayingFromPlayStateEvent, isPlayerPlaying } from './ncm-compat.js';
+import { appendRegisterCall, removeRegisterCall, rebindChannelEvents, getIsPlayingFromPlayStateEvent, isPlayerPlaying, isRefinedNowPlayingActive, getPlayingSongId, getPlayingState } from './ncm-compat.js';
 
 const useState = React.useState;
 const useEffect = React.useEffect;
@@ -348,7 +348,70 @@ export function Lyrics(props) {
 		onPlayProgress(songId, currentTime.current / 1000);
 	}, [lyrics, globalOffset]);
 
+	// RNPNext and LyricBarNext both register single-slot native audioplayer events.
+	// Use a passive clock when RNPNext is present; avoid replacing its callbacks.
 	useEffect(() => {
+		if (!isRefinedNowPlayingActive()) return;
+		let lastId = '';
+		let lastPlaying = null;
+		let anchorSeconds = null;
+		let anchorAt = 0;
+		let source = 'none';
+		const sample = () => {
+			const id = getPlayingSongId();
+			if (!id) return;
+			const playing = isPlayerPlaying();
+			if (id !== lastId) {
+				lastId = id;
+				anchorSeconds = null;
+				anchorAt = 0;
+				source = 'none';
+			}
+			if (id !== songId || playing !== lastPlaying) {
+				lastPlaying = playing;
+				onPlayStateChange(id, playing ? 'resume' : 'pause');
+			}
+			const now = performance.now();
+			const plugins = typeof loadedPlugins !== 'undefined' ? loadedPlugins : window.loadedPlugins;
+			const player = plugins?.LibFrontendPlay?.currentAudioPlayer;
+			let value = player && Number.isFinite(player.currentTime) ? player.currentTime : null;
+			if (value != null) source = 'LibFrontendPlay';
+			if (value == null) {
+				const media = [...document.querySelectorAll('audio, video')].find(el =>
+					Number.isFinite(el.duration) && el.duration > 0 &&
+					Number.isFinite(el.currentTime) && (playing ? !el.paused : true));
+				if (media) { value = media.currentTime; source = 'media'; }
+			}
+			if (value == null) {
+				const duration = Number(getPlayingState()?.resourceDuration);
+				if (Number.isFinite(duration) && duration > 0) {
+					for (const el of document.querySelectorAll('input[type="range"], [role="slider"]')) {
+						const max = Number(el.max ?? el.getAttribute('aria-valuemax'));
+						const pos = Number(el.value ?? el.getAttribute('aria-valuenow'));
+						if (Number.isFinite(max) && Math.abs(max - duration) < Math.max(2, duration * 0.015) && Number.isFinite(pos) && pos >= 0 && pos <= max) {
+							value = pos; source = 'slider'; break;
+						}
+					}
+				}
+			}
+			if (value == null && anchorSeconds != null) {
+				value = anchorSeconds + (playing ? Math.max(0, now - anchorAt) / 1000 : 0);
+				source = 'extrapolated';
+			}
+			if (!Number.isFinite(value) || value < 0) return;
+			anchorSeconds = value;
+			anchorAt = now;
+			lastProgressAt.current = Date.now();
+			onPlayProgress(id, value);
+			window.__lbnPassiveProgress = { songId: id, seconds: value, source, playing };
+		};
+		const timer = setInterval(() => { try { sample(); } catch (e) { console.debug('LBN passive clock', e); } }, 125);
+		sample();
+		return () => { clearInterval(timer); };
+	}, []);
+
+	useEffect(() => {
+		if (isRefinedNowPlayingActive()) return;
 		appendRegisterCall("PlayState", "audioplayer", onPlayStateChange);
 		appendRegisterCall("PlayProgress", "audioplayer", onPlayProgress);
 		const _channalCall = channel.call;
@@ -372,8 +435,10 @@ export function Lyrics(props) {
 	// 失联看门狗：播放器在播放但超过 5s 没有任何进度/状态事件时，
 	// 向原生重新绑定 audioplayer 事件（幂等），实现自愈
 	useEffect(() => {
+		if (isRefinedNowPlayingActive()) return;
 		const timer = setInterval(() => {
 			try {
+				if (isRefinedNowPlayingActive()) return;
 				if (!isPlayerPlaying()) {
 					lastProgressAt.current = Date.now(); // 暂停期间不累计失联
 					return;
