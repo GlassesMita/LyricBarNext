@@ -42,6 +42,20 @@ const normalizeClassName = (value) => {
 };
 const registeredEvents = new Set();
 const registeredCallbacks = new Map();
+ 
+// RNPNext registers the same native audioplayer callbacks. In NCM 3.x,
+// registerCall can replace the preceding handler instead of adding a listener.
+// When RNPNext is active, do not compete for those single-slot callbacks.
+export const isRefinedNowPlayingActive = () => {
+	try {
+		const plugins = typeof loadedPlugins !== 'undefined' ? loadedPlugins : window.loadedPlugins;
+		return !!plugins?.RefinedNowPlayingNext && plugins.RefinedNowPlayingNext.enabled !== false;
+	} catch (error) {
+		return false;
+	}
+};
+const RNP_SHARED_EVENTS = new Set(['audioplayer.onPlayProgress', 'audioplayer.onPlayState', 'audioplayer.onLoad']);
+
 
 export const getNCMStore = () => {
 	for (const getStore of ROOT_STORE_CANDIDATES) {
@@ -218,6 +232,9 @@ export const appendRegisterCall = (name, namespace, callback) => {
 	}
 
 	const eventName = `${namespace}.on${name}`;
+	if (isRefinedNowPlayingActive() && RNP_SHARED_EVENTS.has(eventName)) {
+		return callback;
+	}
 	if (!registeredEvents.has(eventName)) {
 		registeredEvents.add(eventName);
 		channel.registerCall(eventName, (...args) => {
@@ -256,6 +273,7 @@ export const rebindChannelEvents = () => {
 	}
 	let ok = 0;
 	for (const eventName of registeredEvents) {
+		if (isRefinedNowPlayingActive() && RNP_SHARED_EVENTS.has(eventName)) continue;
 		try {
 			channel.registerCall(eventName, (...args) => dispatchRegisteredEvent(eventName, args));
 			ok += 1;
